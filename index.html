@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Сюжетный пропуск</title>
+<meta name="description" content="Свой батлпас на прохождение сюжетных игр из библиотеки Steam: ранг, челленджи, сундуки и награды.">
+<meta property="og:title" content="Сюжетный пропуск">
+<meta property="og:description" content="Свой батлпас на прохождение сюжетных игр: ранг, челленджи, сундуки и награды.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0E1117">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='8' y='8' width='16' height='16' rx='3' transform='rotate(45 16 16)' fill='%23F2B24A'/%3E%3C/svg%3E">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <p class="eyebrow" id="eyebrow">Сезон 1 · старт 28 сентября 2026</p>
+      <h1>Сюжетный пропуск</h1>
+      <p class="lede" id="lede">Сюжетные игры из твоей библиотеки Steam. Проходи, копи очки, поднимай ранг и забирай награды. Дропать можно, но жетонов мало.</p>
+    </div>
+    <div class="rank" id="rank" aria-live="polite"></div>
+  </header>
+
+  <p class="status" id="status" hidden></p>
+
+  <div class="chest-banner" id="chestBanner" hidden></div>
+
+  <section class="stats" id="stats" aria-label="Сводка"></section>
+
+  <section class="track" aria-labelledby="h-track">
+    <div class="track-head"><h2 id="h-track">Трек наград</h2><span class="muted small" id="trackNote">Ранги и твои награды по очкам</span></div>
+    <div class="track-scroll" id="trackScroll"><div class="track-inner" id="track"></div></div>
+  </section>
+
+  <div class="layout">
+    <main class="col-main">
+      <section aria-labelledby="h-now">
+        <div class="sec-head"><h2 id="h-now">Сейчас в игре</h2><span class="muted small">Одна основная игра и кооп-слот</span></div>
+        <div class="slots" id="slots"></div>
+      </section>
+
+      <section aria-labelledby="h-lib" id="lib">
+        <div class="sec-head"><h2 id="h-lib">Библиотека</h2><span class="muted small" id="libCount"></span></div>
+        <div class="tabs" id="tabs" role="tablist" aria-label="Подборки"></div>
+        <div class="lib-tools">
+          <label class="search"><span class="sr">Поиск по играм</span><input id="q" type="search" placeholder="Найти игру" autocomplete="off"></label>
+          <button class="btn" type="button" data-act="spin" id="spinBtn">Рулетка</button>
+        </div>
+        <div class="roulette" id="roulette" hidden></div>
+        <ol class="games" id="games"></ol>
+        <details class="add" id="addWrap">
+          <summary>Добавить игру, которой нет в списке</summary>
+          <form class="add-form" id="addForm">
+            <label>Название<input id="addName" required maxlength="80" autocomplete="off"></label>
+            <label>Часов по сюжету<input id="addHours" type="number" min="1" max="200" step="1" required></label>
+            <label>Жанр<select id="addCat"><option value="story">Сюжетная</option><option value="horror">Хоррор</option><option value="action">Экшен</option><option value="rpg">RPG</option><option value="indie">Инди</option><option value="hard">Хардкор</option></select></label>
+            <label class="chk"><input id="addCoop" type="checkbox"> Можно с другом</label>
+            <button class="btn btn-primary" type="submit" id="addSubmit">Добавить</button>
+          </form>
+        </details>
+      </section>
+    </main>
+
+    <aside class="col-side">
+      <section class="card" aria-labelledby="h-rules">
+        <h2 id="h-rules">Правила</h2>
+        <ul class="rules">
+          <li><span><b>Одна основная игра за раз.</b> Игра с другом идёт отдельно, в кооп-слоте.</span></li>
+          <li><span><b>10 очков за час сюжета</b> по HowLongToBeat. Плюс бонусы за челленджи.</span></li>
+          <li><span><b>Спринт +30:</b> дойди до титров за половину длины игры в днях (минимум 7). Отсчёт идёт с нажатия «Начать играть».</span></li>
+          <li><span><b>Первые 2 часа — пробные.</b> Не зашло — бросай бесплатно, но без очков.</span></li>
+          <li><span><b>Дальше дроп стоит жетон.</b> На старте 3, каждые 2 пройденные игры дают ещё один. Жетонов нет — проходи до конца.</span></li>
+          <li><span><b>Ачивка +50.</b> Ранги как в Доте: от Рекрута до Титана.</span></li>
+          <li><span><b>Новый ранг — сундук.</b> В нём жетоны дропа, часы спринта (+7 дней к сроку) и бустеры (база игры ×1,5).</span></li>
+        </ul>
+      </section>
+      <section class="card" aria-labelledby="h-dota">
+        <h2 id="h-dota">Дота-контракт</h2>
+        <div id="dota"></div>
+      </section>
+      <section class="card" aria-labelledby="h-ranks">
+        <h2 id="h-ranks">Ранги и сундуки</h2>
+        <div class="inv" id="inv"></div>
+        <ul class="rk" id="ranks"></ul>
+      </section>
+      <section class="card" aria-labelledby="h-rew">
+        <div class="sec-head" style="margin-bottom:0"><h2 id="h-rew">Награды</h2><button class="btn btn-small btn-ghost" type="button" data-act="rew-edit" id="rewEditBtn">Изменить</button></div>
+        <div id="rewards"></div>
+      </section>
+      <section class="card" aria-labelledby="h-ach">
+        <h2 id="h-ach">Ачивки</h2>
+        <div class="ach" id="ach"></div>
+      </section>
+      <section class="card" aria-labelledby="h-log">
+        <h2 id="h-log">Журнал</h2>
+        <ol class="log" id="log"></ol>
+      </section>
+    </aside>
+  </div>
+
+  <p class="foot">Часы — примерная длина основного сюжета по HowLongToBeat. «В Steam N ч» — сколько было наиграно до старта пропуска, снимок библиотеки на 28.09.2026. Все отметки честные: пропуск верит игроку на слово.</p>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script type="application/json" id="pass-data">{}</script>
+<script src="data.js"></script>
+<script src="catalog.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
