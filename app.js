@@ -16,9 +16,164 @@ var ACH = [
 {id:'storyfirst', n:'Сначала сюжет', d:'7 дней «час сюжетки перед каткой»', test:function(c){return c.dotaDays >= 7;}},
 {id:'wolf', n:'Белый Волк', d:'Пройди Ведьмака 3 и оба дополнения', test:function(c){return hasDone(c,'w3') && hasDone(c,'w3hos') && hasDone(c,'w3baw');}}
 ];
+/* ---------- Ведьмачий журнал: каталог ---------- */
+var W3_CAP = 150, W3_BOARD_BONUS = 5, W3_CHEST_AT = 0.75;
+var W3_ACTS = [null, 'Белый Сад и Велен', 'Новиград и Скеллиге', 'Финал', 'Каменные сердца', 'Кровь и вино'];
+var W3_COLS = [
+{id:'hunt', n:'Заказы', chest:{clock:1}},
+{id:'forge', n:'Кузница', chest:{boost:1}},
+{id:'alch', n:'Алхимия', chest:{token:1}},
+{id:'gwent', n:'Гвинт', chest:{boost:1}},
+{id:'story', n:'Истории', chest:{clock:1}},
+{id:'skill', n:'Прокачка', chest:{token:1}},
+{id:'explore', n:'Исследование', chest:{clock:1}},
+{id:'photo', n:'Альбом и образ', chest:{token:1}},
+{id:'replay', n:'Второй раз', chest:{boost:1}},
+{id:'char', n:'Характер'},
+{id:'secret', n:'Секреты'}
+];
+var W3_PATHS = {
+hunter:{n:'Охотник', d:'заказы и алхимия ×1,5', cols:['hunt','alch']},
+gambler:{n:'Картёжник', d:'гвинт и истории ×1,5', cols:['gwent','story']},
+master:{n:'Мастер', d:'кузница и прокачка ×1,5', cols:['forge','skill']}
+};
+var W3_CHARS = {
+book:{n:'Книжный Геральт', d:'Сдержанный, ироничный, держит нейтралитет'},
+kind:{n:'Добряк', d:'Помогает всем и берёт мало'},
+merc:{n:'Наёмник', d:'Ведьмак — это работа, а работа стоит денег'}
+};
+var W3_RAR = {common:'Обычный', rare:'Редкий', epic:'Эпический', legend:'Легендарный'};
+/* c — коллекция, p — очки, n — сколько раз можно, a — с какого акта открыто, k — характер, h — подсказка секрета */
+var W3T = [
+{id:'h_prep', c:'hunt', t:'Подготовка к заказу: прочитал о чудовище, взял масло, выпил зелье, бил знаком или бомбой по слабости', p:10, n:10},
+{id:'h_noon', c:'hunt', t:'Полуденница у колодца: дождаться полудня медитацией и выманить её', p:15},
+{id:'h_night', c:'hunt', t:'Ночная работа: промотать медитацией до ночи и прийти к призраку вовремя', p:15},
+{id:'h_cycle', c:'hunt', t:'Полный цикл охотника: прочитал → убил по заказу → забрал трофей → сварил отвар из его мутагена', p:30, n:3},
+{id:'h_guess', c:'hunt', t:'Что за тварь? Назвать вид чудовища по рассказу заказчика до встречи с ним', p:10, n:5},
+{id:'h_trophy', c:'hunt', t:'Трофейная стенка: собрать 5 разных трофеев заказов, один повесить на Плотву', p:20},
+{id:'h_nest', c:'hunt', t:'Гнездовед: уничтожить гнездо чудовищ бомбой', p:5, n:5},
+{id:'h_velen3', c:'hunt', t:'3 заказа с досок Велена', p:10},
+{id:'h_velen6', c:'hunt', t:'6 заказов в Велене', p:10},
+{id:'h_novi3', c:'hunt', t:'3 заказа в Новиграде и окрестностях', p:10, a:2},
+{id:'h_skel3', c:'hunt', t:'3 заказа на Скеллиге', p:10, a:2},
+{id:'f_school', c:'forge', t:'Выбрать школу снаряжения: Кот, Грифон или Медведь', p:5},
+{id:'f_set', c:'forge', t:'Надеть полный сет одной школы: доспех, перчатки, штаны, сапоги и оба меча', p:40},
+{id:'f_own', c:'forge', t:'Своё железо: к концу акта всё надетое скрафчено или найдено тобой', p:25},
+{id:'f_runes', c:'forge', t:'Руна в каждом гнезде основного меча', p:10},
+{id:'f_schem', c:'forge', t:'Школа в деле: нашёл схему и в ту же неделю скрафтил и надел', p:10, n:3},
+{id:'f_roach', c:'forge', t:'Снаряжение для Плотвы: седло, седельные сумки и шоры', p:15},
+{id:'f_relic', c:'forge', t:'Первая реликвия: найти оранжевый предмет и прочитать его историю', p:5},
+{id:'f_upset', c:'forge', t:'Скрафтить улучшенную версию своего сета', p:30, a:2},
+{id:'f_master', c:'forge', t:'Выковать меч у мастера-кузнеца', p:20, a:2},
+{id:'f_relic5', c:'forge', t:'Оружейная: собрать 5 реликвий', p:20, a:2},
+{id:'f_second', c:'forge', t:'Второй сет: полный сет другой школы и 3 сессии в нём', p:30, a:2},
+{id:'f_manti', c:'forge', t:'Скрафтить предмет школы Мантикоры', p:20, a:5},
+{id:'a_kit', c:'alch', t:'Базовая аптечка: Ласточка, Гром, Кошка и Пурга', p:10},
+{id:'a_spirit', c:'alch', t:'Спирт в кармане: держать крепкий алкоголь, чтобы медитация пополняла зелья', p:5},
+{id:'a_oils', c:'alch', t:'5 разных масел под разные типы чудовищ', p:15},
+{id:'a_decoc', c:'alch', t:'Первый отвар из мутагена чудовища перед трудным боем', p:15},
+{id:'a_bomb', c:'alch', t:'Бомба по слабости: убить чудовище бомбой, к которой оно уязвимо', p:10, n:3},
+{id:'a_supply', c:'alch', t:'Снабженец: сварил масло под заказ и в тот же вечер закрыл заказ', p:15, n:3},
+{id:'a_honey', c:'alch', t:'Белый мёд после «коктейля» из зелий', p:10},
+{id:'a_enh', c:'alch', t:'Улучшенные версии трёх зелий', p:20, a:2},
+{id:'g_first', c:'gwent', t:'Первая партия в гвинт с трактирщиком Белого Сада', p:5},
+{id:'g_five', c:'gwent', t:'Обыграть 5 разных соперников в Велене', p:20},
+{id:'g_buy', c:'gwent', t:'Купить карты у 3 разных торговцев или трактирщиков', p:10},
+{id:'g_spies', c:'gwent', t:'Шпионская сеть: выиграть, сыграв 2 карты-шпиона', p:5},
+{id:'g_pass', c:'gwent', t:'Отдал первый раунд и выиграл матч 2:1', p:10},
+{id:'g_weather', c:'gwent', t:'Погодный маг: погодная карта решила раунд в твою пользу', p:5},
+{id:'g_clean', c:'gwent', t:'Всухую 2:0 у сильного соперника', p:10},
+{id:'g_unique', c:'gwent', t:'Выиграть 5 уникальных карт', p:20},
+{id:'g_leader', c:'gwent', t:'5 побед подряд с одной картой лидера', p:10},
+{id:'g_four', c:'gwent', t:'Победы всеми четырьмя фракциями: Север, Нильфгаард, Скоя’таэли, Чудовища', p:20},
+{id:'g_oldpals', c:'gwent', t:'Обыграть старых друзей Геральта', p:20, a:2},
+{id:'g_skel', c:'gwent', t:'Выиграть турнир по гвинту на Скеллиге', p:30, a:2},
+{id:'g_skdeck', c:'gwent', t:'Победа колодой Скеллиге', p:10, a:5},
+{id:'g_tous', c:'gwent', t:'Выиграть турнир по гвинту в Туссенте', p:20, a:5},
+{id:'s_baron', c:'story', t:'Линия Кровавого Барона целиком, ничего не читая о последствиях', p:30},
+{id:'s_keira', c:'story', t:'Квест Кейры Мец на острове Фьяк', p:15},
+{id:'s_whodunit', c:'story', t:'Кто это сделал? Записать догадку до развязки расследования — и угадать', p:10, n:5},
+{id:'s_fists', c:'story', t:'Выиграть все кулачные бои в Велене', p:15},
+{id:'s_races', c:'story', t:'Выиграть 3 скачки на Плотве', p:15},
+{id:'s_honest', c:'story', t:'Честный выбор: все важные решения акта с первого раза, без перезагрузок', p:30, n:3},
+{id:'s_city', c:'story', t:'Горожанин: обойти пешком все районы Новиграда и в каждом взять квест или объявление', p:20, a:2},
+{id:'s_oxen', c:'story', t:'Академия: побочный квест в Оксенфурте', p:10, a:2},
+{id:'s_isles', c:'story', t:'Побывать на всех шести больших островах Скеллиге', p:25, a:2},
+{id:'s_sirens', c:'story', t:'Морской волк: отбиться от сирен, не сходя с лодки', p:10, a:2},
+{id:'s_undvik', c:'story', t:'Пройти «Владыку Ундвика»', p:15, a:2},
+{id:'s_wish', c:'story', t:'Квест с Йеннифэр и джинном', p:15, a:2},
+{id:'s_allies', c:'story', t:'Собрать союзников: все задания «Братья по оружию»', p:40, a:2},
+{id:'s_champ', c:'story', t:'Чемпион кулачных боёв во всех регионах', p:30, a:2},
+{id:'s_heist', c:'story', t:'Каменные сердца: ограбление с командой, которую выбрал сам', p:20, a:4},
+{id:'s_runes', c:'story', t:'Каменные сердца: нанести рунное слово у мастера рун', p:20, a:4},
+{id:'s_mut', c:'story', t:'Кровь и вино: активировать 3 мутации', p:30, a:5},
+{id:'k_pop1', c:'skill', t:'Место силы в Белом Саду', p:5},
+{id:'k_popv', c:'skill', t:'Все места силы Велена', p:15},
+{id:'k_popfight', c:'skill', t:'Место силы в деле: сразу после него выиграть бой усиленным знаком', p:10, n:3},
+{id:'k_rank3', c:'skill', t:'Довести любой навык до 3-го ранга', p:10},
+{id:'k_alt', c:'skill', t:'Открыть альтернативный режим у двух знаков и выиграть ими по бою', p:15},
+{id:'k_axii', c:'skill', t:'Язык Аксия: 3 раза решить разговор знаком вместо денег или драки', p:15},
+{id:'k_five', c:'skill', t:'Все пять знаков в одном бою', p:10},
+{id:'k_water', c:'skill', t:'Утопец под водой из арбалета', p:5},
+{id:'k_pops', c:'skill', t:'Места силы Скеллиге — за каждые 3 найденных', p:5, n:5, a:2},
+{id:'k_three', c:'skill', t:'Навык 3-го ранга в бою, в знаках и в алхимии', p:20, a:2},
+{id:'k_style', c:'skill', t:'Твой стиль: выбрать основную ветку и записать в дневник почему', p:10, a:2},
+{id:'e_village', c:'explore', t:'Вернуть жизнь: зачистить заброшенное поселение, чтобы туда вернулись люди', p:10, n:5},
+{id:'e_guard', c:'explore', t:'Сокровище под охраной: узнать сторожа по бестиарию и забрать клад', p:10, n:3},
+{id:'e_hunt', c:'explore', t:'Охота за сокровищами по найденной записке или карте', p:10, n:3},
+{id:'e_best15', c:'explore', t:'Бестиарий: 15 записей', p:10},
+{id:'e_best30', c:'explore', t:'Бестиарий: 30 записей', p:15},
+{id:'e_best50', c:'explore', t:'Бестиарий: 50 записей', p:20, a:2},
+{id:'e_velen', c:'explore', t:'Хозяин Велена: жизнь во всех заброшенных поселениях Велена', p:25, a:2},
+{id:'p_cover', c:'photo', t:'Обложка акта: постановочный кадр — поза, свет, погода', p:15, n:5},
+{id:'p_monster', c:'photo', t:'Портрет чудовища: кадр с поверженным заказным чудовищем', p:5, n:4},
+{id:'p_fp', c:'photo', t:'Глазами ведьмака: кадр от первого лица в любимом месте', p:5},
+{id:'p_before', c:'photo', t:'Живая деревня: кадр поселения до и после зачистки', p:5, n:3},
+{id:'p_look', c:'photo', t:'Образ акта: собрать свой вид через трансмог у мастера', p:10, n:3, a:2},
+{id:'p_strong', c:'photo', t:'Сильный и красивый: лучшая броня с видом любимого сета', p:10, a:2},
+{id:'p_empty', c:'photo', t:'Пустой Новиград: кадр со скрытыми NPC', p:5, a:2},
+{id:'p_storm', c:'photo', t:'Шторм на Скеллиге: постановочный кадр', p:5, a:2},
+{id:'p_poster', c:'photo', t:'Постер: лучший кадр игры, выбранный вместе с друзьями', p:20, a:3},
+{id:'r_diff', c:'replay', t:'Другой выбор: в крупном квесте поступить иначе, чем в первый раз, и досмотреть последствия', p:15, n:3},
+{id:'r_missed', c:'replay', t:'Что я пропустил: 3 побочки за акт, которых не помнишь', p:10, n:5},
+{id:'r_memory', c:'replay', t:'Я помню, чем кончится: записать догадку перед большим квестом и сверить', p:5, n:5},
+{id:'r_school', c:'replay', t:'Другая школа: сет, который в первый раз не носил', p:10},
+{id:'r_stream', c:'replay', t:'Кинопоказ: сюжетная сессия на стриме другу в Discord', p:10},
+{id:'r_vote', c:'replay', t:'Зал решает: один выбор в диалоге отдать голосованию зрителей', p:10},
+{id:'r_friend', c:'replay', t:'Решение за друга: важный выбор сделать так, как сказал друг', p:10, n:3},
+{id:'r_region', c:'replay', t:'Незнакомый регион: цепочка побочек там, где в первый раз бежал по сюжету', p:20, a:2},
+{id:'c_neutral', c:'char', k:'book', t:'Не вмешиваться в конфликт, мимо которого можно пройти', p:5, n:3},
+{id:'c_sarcasm', c:'char', k:'book', t:'Выбрать саркастичную реплику там, где она есть', p:5, n:5},
+{id:'c_free', c:'char', k:'kind', t:'Отказаться от платы, если заказчику нечем платить', p:10, n:3},
+{id:'c_help', c:'char', k:'kind', t:'Помочь человеку на дороге, даже если награды нет', p:5, n:5},
+{id:'c_haggle', c:'char', k:'merc', t:'Поторговаться за заказ и не разозлить заказчика', p:5, n:5},
+{id:'c_rich', c:'char', k:'merc', t:'Накопить 10 000 крон', p:15},
+{id:'x_hmm', c:'secret', h:'«Хм…»', t:'Насчитать 10 ведьмачьих «Хм…» за одну сессию', p:5},
+{id:'x_roach', c:'secret', h:'«Плотва, ты как туда залезла?»', t:'Скриншот Плотвы в самом нелепом месте', p:5},
+{id:'x_barber', c:'secret', h:'«Новый образ»', t:'Сменить Геральту причёску или бороду у цирюльника', p:5},
+{id:'x_peace', c:'secret', h:'«Миром»', t:'Закончить заказ или квест без боя', p:10},
+{id:'x_swim', c:'secret', h:'«Пловец»', t:'Доплыть вплавь, хотя рядом была лодка', p:5},
+{id:'x_bard', c:'secret', h:'«Слушатель»', t:'Дослушать выступление барда в трактире до конца', p:5}
+];
+/* легендарные контракты: выпадают на доску с шансом 1%, вне недельного лимита */
+var W3L = [
+{id:'L_hunt', c:'legend', t:'Неделя охотника: 3 заказа и отвар из мутагена каждого чудовища', p:60},
+{id:'L_cards', c:'legend', t:'Вечер картёжника: 5 побед в гвинт подряд за одну сессию', p:60},
+{id:'L_region', c:'legend', t:'Хозяин региона: заказ, гвинт, кулачный бой и скачки за одну сессию', p:60}
+];
+var VESEMIR = [
+'Вот так и работают ведьмаки. Без спешки, с головой.',
+'Доска объявлений сама себя не прочитает.',
+'Ты ведьмак или картёжник? Хотя… хорошая партия.',
+'Отдохни. Чудовища подождут, они никуда не денутся.',
+'Масло на клинок — и половина дела сделана.',
+'Неплохо. Для ученика.',
+'Главное — вернуться на тропу.',
+'Бестиарий читают до боя, а не после.'
+];
 var GIFT = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="2" y="7" width="12" height="7" rx="1.2" fill="currentColor"/><rect x="1" y="4" width="14" height="3.2" rx="1" fill="currentColor"/><rect x="7.1" y="4" width="1.8" height="10" fill="var(--surface)"/></svg>';
 /* ---------- состояние ---------- */
-var S = {progress:{}, custom:{}, dota:{days:[], weeks:[]}, rewards:null, ranks:{claimed:{}}, mode:'loading', loaded:false, readonly:false, tab:'route', q:'', panel:null, rewardEdit:false, trackScrolled:false};
+var S = {progress:{}, custom:{}, dota:{days:[], weeks:[]}, rewards:null, ranks:{claimed:{}}, mode:'loading', loaded:false, readonly:false, tab:'route', q:'', panel:null, rewardEdit:false, trackScrolled:false, w3:null, w3col:'hunt', w3confirm:false};
 var VIEWER = true;
 var PLAYER = 'Никита', SNAP_AT = null;
 if (VIEWER) {
@@ -27,6 +182,7 @@ if (!PD) { try { PD = JSON.parse(document.getElementById('pass-data').textConten
 S.progress = PD.progress || {}; S.custom = PD.custom || {};
 S.dota = {days:(PD.dota && PD.dota.days) || [], weeks:(PD.dota && PD.dota.weeks) || []};
 S.rewards = PD.rewards || null; S.ranks = {claimed:(PD.ranks && PD.ranks.claimed) || {}};
+S.w3 = (PD.witcher && typeof PD.witcher === 'object') ? PD.witcher : null;
 PLAYER = PD.player || PLAYER; SNAP_AT = PD.updatedAt || null;
 S.mode = 'viewer'; S.loaded = true; S.readonly = true;
 document.documentElement.classList.add('viewer');
@@ -84,9 +240,11 @@ var achs = ACH.map(function(a){ var ok = false; try { ok = !!a.test(ctx); } catc
 var achPts = achs.filter(function(a){ return a.ok; }).length * ACH_BONUS;
 var dotaPts = dotaDays * DOTA_DAY + dotaWeeks * DOTA_WEEK;
 ctx.gamePts = gamePts; ctx.dotaPts = dotaPts; ctx.achPts = achPts; ctx.achs = achs;
-ctx.total = gamePts + dotaPts + achPts;
+var w3d = w3Derive(); ctx.w3 = w3d; ctx.w3Pts = w3d.pts;
+ctx.total = gamePts + dotaPts + achPts + w3d.pts;
 var granted = {token:0, clock:0, boost:0}, cl = claimedMap();
 RANKS.forEach(function(r){ if (r.chest && cl[r.id]) Object.keys(r.chest).forEach(function(k){ granted[k] += r.chest[k]; }); });
+Object.keys(w3d.granted).forEach(function(k){ granted[k] += w3d.granted[k]; });
 var usedClock = 0, usedBoost = 0;
 Object.keys(S.progress).forEach(function(id){ var pp = S.progress[id] || {}; usedClock += Number(pp.clocks) || 0; if (pp.boost) usedBoost++; });
 ctx.inv = {clock:Math.max(0, granted.clock - usedClock), boost:Math.max(0, granted.boost - usedBoost), bonusTokens:granted.token};
@@ -108,7 +266,7 @@ return out.join('');
 /* ---------- отрисовка ---------- */
 function renderAll(){
 var d = derive();
-renderStatus(); renderRank(d); renderStats(d); renderTrack(d); renderSlots(d); renderTabs(); renderGames(d); renderDota(d);
+renderStatus(); renderRank(d); renderStats(d); renderTrack(d); renderSlots(d); renderWitcher(d); renderTabs(); renderGames(d); renderDota(d);
 if (!S.rewardEdit) renderRewards(d);
 renderAch(d); renderLog(); renderBanner(d); renderRanks(d);
 $('addSubmit').disabled = locked();
@@ -146,7 +304,7 @@ var shown = Math.max(d.tokens, 3);
 for (var i = 0; i < shown; i++) pips += '<span class="pip' + (i < d.tokens ? '' : ' off') + '"></span>';
 var toNext = 2 - (d.done.length % 2);
 $('stats').innerHTML =
-stat(num(d.total), 'Очки', 'игры ' + num(d.gamePts) + ' · Дота ' + num(d.dotaPts) + ' · ачивки ' + num(d.achPts)) +
+stat(num(d.total), 'Очки', 'игры ' + num(d.gamePts) + ' · Ведьмак ' + num(d.w3Pts) + ' · Дота ' + num(d.dotaPts) + ' · ачивки ' + num(d.achPts)) +
 stat(String(d.done.length), 'Пройдено игр', '≈' + num(d.hoursDone) + ' ч сюжета') +
 '<div class="stat"><div class="pips" aria-label="Жетонов дропа: ' + d.tokens + '">' + pips + '</div><div class="l">Жетоны дропа: ' + d.tokens + '</div><div class="l">новый через ' + toNext + ' ' + plural(toNext, 'пройденную игру', 'пройденные игры', 'пройденных игр') + '</div></div>' +
 stat(routeDone + '/' + routeTotal, 'Маршрут', d.dropped.length ? 'дропнуто: ' + d.dropped.length : 'без дропов');
@@ -391,6 +549,8 @@ if (p.droppedAt) ev.push({t:p.droppedAt, txt:(p.dropKind === 'trial' ? 'Проб
 });
 rewardItems().forEach(function(x){ if (x.claimedAt) ev.push({t:x.claimedAt, txt:'Забрал награду: ' + x.text}); });
 var cm = claimedMap(); RANKS.forEach(function(r){ if (cm[r.id]) ev.push({t:cm[r.id], txt:'Открыл сундук ранга «' + r.n + '»'}); });
+var wd = w3().actsDone || {}; Object.keys(wd).forEach(function(a){ if (W3_ACTS[a]) ev.push({t:wd[a], txt:'Ведьмак 3: пройден акт ' + a + ' «' + W3_ACTS[a] + '»'}); });
+var wt = w3().tasks || {}; W3L.forEach(function(l){ var e0 = (wt[l.id] || [])[0]; if (e0) ev.push({t:e0.t, txt:'Легендарный контракт: ' + l.t.split(':')[0], pts:e0.p}); });
 ev.sort(function(a, b){ return String(b.t).localeCompare(String(a.t)); });
 return ev;
 }
@@ -407,13 +567,13 @@ clearTimeout(toastTimer); toastTimer = setTimeout(function(){ el.hidden = true; 
 }
 /* ---------- сохранение ---------- */
 function saveLocal(){
-try { localStorage.setItem('story-pass-v1', JSON.stringify({progress:S.progress, custom:S.custom, dota:S.dota, rewards:S.rewards, ranks:S.ranks})); } catch (e) {}
+try { localStorage.setItem('story-pass-v1', JSON.stringify({progress:S.progress, custom:S.custom, dota:S.dota, rewards:S.rewards, ranks:S.ranks, witcher:S.w3})); } catch (e) {}
 }
 function loadLocal(){
 try {
 var raw = localStorage.getItem('story-pass-v1'); if (!raw) return;
 var o = JSON.parse(raw) || {};
-S.progress = o.progress || {}; S.custom = o.custom || {}; S.dota = o.dota || {days:[], weeks:[]}; S.rewards = o.rewards || null; S.ranks = o.ranks || {claimed:{}};
+S.progress = o.progress || {}; S.custom = o.custom || {}; S.dota = o.dota || {days:[], weeks:[]}; S.rewards = o.rewards || null; S.ranks = o.ranks || {claimed:{}}; S.w3 = o.witcher || null;
 } catch (e) {}
 }
 function onWriteError(e){
@@ -592,6 +752,246 @@ return '<li class="' + cls.join(' ') + '"><span class="rk-n">' + esc(r.n) + '<sp
 }).join('');
 }
 function newId(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+/* ---------- Ведьмачий журнал: логика ---------- */
+function w3(){ return S.w3 || {}; }
+function w3Act(){ return Math.min(5, Math.max(1, Number(w3().act) || 1)); }
+function w3Log(id){ var t = (w3().tasks || {})[id]; return Array.isArray(t) ? t : []; }
+function w3Count(id){ return w3Log(id).length; }
+function w3Task(id){ var l = W3T.concat(W3L); for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }
+function w3Max(t){ return t.n || 1; }
+function w3Unlocked(t){ return t.c === 'legend' || (t.a || 1) <= w3Act(); }
+function w3Visible(t){ return t.c !== 'char' || t.k === w3().char; }
+function w3PathOf(act){ var p = (w3().path || {})[act || w3Act()]; return W3_PATHS[p] ? p : null; }
+function w3Mult(t){ var p = w3PathOf(); return p && W3_PATHS[p].cols.indexOf(t.c) > -1 ? BOOST_MULT : 1; }
+function w3Rarity(t){ if (t.c === 'legend') return 'legend'; return t.p >= 25 ? 'epic' : t.p >= 15 ? 'rare' : 'common'; }
+function w3ColName(id){ var c = W3_COLS.filter(function(x){ return x.id === id; })[0]; return c ? c.n : 'Легенда'; }
+function w3Derive(){
+var tasks = w3().tasks || {}, weeks = {}, raw = 0, legend = 0;
+Object.keys(tasks).forEach(function(id){
+(Array.isArray(tasks[id]) ? tasks[id] : []).forEach(function(e){
+var pts = Math.max(0, Number(e && e.p) || 0); raw += pts;
+if (e.x) { legend += pts; return; }
+var wk = weekKey(e.t); weeks[wk] = (weeks[wk] || 0) + pts;
+});
+});
+var counted = legend, glory = 0;
+Object.keys(weeks).forEach(function(k){ counted += Math.min(W3_CAP, weeks[k]); glory += Math.max(0, weeks[k] - W3_CAP); });
+var granted = {token:0, clock:0, boost:0};
+var cols = W3_COLS.map(function(c){
+var list = W3T.filter(function(t){ return t.c === c.id && w3Visible(t); });
+var tot = 0, got = 0;
+list.forEach(function(t){ var m = w3Max(t); tot += t.p * m; got += t.p * Math.min(m, w3Count(t.id)); });
+var pct = tot ? got / tot : 0;
+var ok = !!c.chest && pct >= W3_CHEST_AT;
+if (ok) Object.keys(c.chest).forEach(function(k){ granted[k] += c.chest[k]; });
+return {c:c, list:list, pct:pct, done:list.filter(function(t){ return w3Count(t.id) >= w3Max(t); }).length, chestOk:ok};
+});
+return {pts:counted, raw:raw, glory:glory, week:weeks[weekKey()] || 0, cols:cols, granted:granted};
+}
+function w3Clone(){
+var o = clone(S.w3) || {};
+o.tasks = (o.tasks && typeof o.tasks === 'object') ? o.tasks : {};
+o.path = (o.path && typeof o.path === 'object') ? o.path : {};
+o.board = (o.board && typeof o.board === 'object') ? o.board : {};
+o.board.cards = Array.isArray(o.board.cards) ? o.board.cards : [];
+o.diary = Array.isArray(o.diary) ? o.diary : [];
+o.actsDone = (o.actsDone && typeof o.actsDone === 'object') ? o.actsDone : {};
+o.act = w3Act();
+return o;
+}
+function w3CardOk(c){ var t = c && w3Task(c.id); return !!t && w3Visible(t) && w3Unlocked(t) && w3Count(t.id) < w3Max(t); }
+function w3Draw(o, excl){
+var on = o.board.cards.map(function(c){ return c.id; }).concat(excl || []);
+if (Math.random() < 0.01) {
+var L = W3L.filter(function(l){ return w3Count(l.id) < 1 && on.indexOf(l.id) < 0; });
+if (L.length) return L[Math.floor(Math.random() * L.length)].id;
+}
+var pool = W3T.filter(function(t){ return t.c !== 'secret' && w3Visible(t) && w3Unlocked(t) && w3Count(t.id) < w3Max(t) && on.indexOf(t.id) < 0; });
+if (!pool.length) return null;
+var pct = {}; w3Derive().cols.forEach(function(c){ pct[c.c.id] = c.pct; });
+var w = pool.map(function(t){ return 1 + 2 * (1 - (pct[t.c] || 0)); });
+var sum = w.reduce(function(s, x){ return s + x; }, 0), r = Math.random() * sum;
+for (var i = 0; i < pool.length; i++) { r -= w[i]; if (r <= 0) return pool[i].id; }
+return pool[pool.length - 1].id;
+}
+function w3Fill(o, excl){
+o.board.cards = o.board.cards.filter(w3CardOk);
+var guard = 0;
+while (o.board.cards.length < 3 && guard++ < 12) { var id = w3Draw(o, excl); if (!id) break; o.board.cards.push({id:id, at:nowISO()}); }
+}
+function w3Save(o){ S.w3 = o; renderAll(); return persist('meta/witcher', clone(o)); }
+function vesemir(){ return Math.random() < 0.4 ? ' Весемир: «' + VESEMIR[Math.floor(Math.random() * VESEMIR.length)] + '»' : ''; }
+function w3Complete(id, fromBoard){
+if (locked()) return;
+var t = w3Task(id); if (!t || !w3Unlocked(t) || !w3Visible(t)) return;
+if (w3Count(id) >= w3Max(t)) return;
+var d0 = derive(), c0 = {};
+d0.w3.cols.forEach(function(c){ c0[c.c.id] = c.chestOk; });
+var o = w3Clone();
+var pts = Math.round(t.p * (t.c === 'legend' ? 1 : w3Mult(t))) + (fromBoard ? W3_BOARD_BONUS : 0);
+var e = {t:nowISO(), p:pts, a:w3Act()};
+if (fromBoard) e.b = 1;
+if (t.c === 'legend') e.x = 1;
+o.tasks[id] = (Array.isArray(o.tasks[id]) ? o.tasks[id] : []).concat([e]);
+S.w3 = o;
+o.board.cards = o.board.cards.filter(function(c){ return c.id !== id; });
+if (fromBoard || o.board.cards.length) w3Fill(o);
+w3Save(o);
+var d1 = derive(), gained = d1.total - d0.total;
+var msg = (t.c === 'secret' ? 'Секрет открыт: ' : 'Готово: ') + t.t.split(':')[0] + '. +' + num(gained) + ' очк.';
+if (gained < pts) msg += ' Лимит недели: ' + (pts - gained) + ' ушло в славу.';
+var nc = d1.w3.cols.filter(function(c){ return c.chestOk && !c0[c.c.id]; })[0];
+if (nc) msg += ' Коллекция «' + nc.c.n + '» на 75%: ' + chestPlain(nc.c.chest) + '!';
+toast(msg + vesemir());
+}
+function w3Undo(id){
+if (locked()) return;
+var o = w3Clone(), l = o.tasks[id];
+if (!Array.isArray(l) || !l.length) return;
+l.pop(); if (!l.length) delete o.tasks[id];
+w3Save(o); toast('Отметка снята.');
+}
+function w3Reroll(id){
+if (locked()) return;
+var o = w3Clone();
+if (o.board.rr === dayKey()) { toast('Сорвать без выполнения можно одно объявление в день.'); return; }
+S.w3 = o;
+o.board.cards = o.board.cards.filter(function(c){ return c.id !== id; });
+o.board.rr = dayKey();
+w3Fill(o, [id]);
+w3Save(o); toast('Объявление сорвано, на доске новое.');
+}
+function w3Refill(){ if (locked()) return; var o = w3Clone(); S.w3 = o; w3Fill(o); w3Save(o); }
+function w3SetChar(k){
+if (locked() || !W3_CHARS[k]) return;
+var o = w3Clone(); o.char = k; S.w3 = o; w3Fill(o); w3Save(o);
+toast('Характер на это прохождение: ' + W3_CHARS[k].n + '.');
+}
+function w3SetPath(k){
+if (locked() || !W3_PATHS[k]) return;
+var o = w3Clone(); o.path[o.act] = k; w3Save(o);
+toast('Путь акта ' + o.act + ': ' + W3_PATHS[k].n + ' — ' + W3_PATHS[k].d + '.');
+}
+function w3NextAct(){
+if (locked()) return;
+var o = w3Clone(); if (o.act >= 5) return;
+o.actsDone[o.act] = nowISO(); o.act = o.act + 1;
+S.w3 = o; S.w3confirm = false; w3Fill(o); w3Save(o);
+toast('Акт пройден. Дальше: ' + W3_ACTS[o.act] + '. Новые задания открыты.' + vesemir());
+}
+function w3AddDiary(text){
+if (locked()) return;
+text = String(text || '').trim().slice(0, 240); if (!text) return;
+var o = w3Clone(); o.diary = [{t:nowISO(), a:o.act, x:text}].concat(o.diary).slice(0, 300);
+w3Save(o); toast('Записано в дневник.');
+}
+function w3DelDiary(at){
+if (locked()) return;
+var o = w3Clone(); o.diary = o.diary.filter(function(e){ return e.t !== at; }); w3Save(o);
+}
+/* ---------- Ведьмачий журнал: отрисовка ---------- */
+function w3TaskRow(t, w){
+var cnt = w3Count(t.id), max = w3Max(t), full = cnt >= max, open = w3Unlocked(t), ro = locked() ? ' disabled' : '';
+var mult = w3Mult(t), pts = Math.round(t.p * mult);
+var secretHidden = t.c === 'secret' && cnt === 0;
+var txt = secretHidden ? '??? ' + t.h : t.t;
+var cls = ['w3-task', 'r-' + w3Rarity(t)];
+if (full) cls.push('full'); if (!open) cls.push('lock');
+var right;
+if (!open) right = '<span class="small muted">🔒 акт ' + t.a + '</span>';
+else if (VIEWER) right = full ? '<span class="pill good">✓</span>' : (cnt ? '<span class="mono small">' + cnt + '/' + max + '</span>' : '');
+else right = (cnt ? '<button class="btn btn-small btn-ghost" type="button" data-act="w3-undo" data-id="' + t.id + '" title="Снять последнюю отметку"' + ro + '>−</button>' : '') +
+(full ? '<span class="pill good">✓</span>' : '<button class="btn btn-small" type="button" data-act="w3-done" data-id="' + t.id + '"' + ro + '>Выполнил</button>');
+return '<li class="' + cls.join(' ') + '"><span class="w3-t">' + esc(txt) + (max > 1 ? ' <span class="mono muted small">' + cnt + '/' + max + '</span>' : '') + '</span>' +
+'<span class="mono plus">+' + pts + (mult > 1 ? ' <span class="small">×1,5</span>' : '') + '</span><span class="w3-r">' + right + '</span></li>';
+}
+function renderWitcher(d){
+var sec = $('w3'); if (!sec) return;
+var st = w3(), w = d.w3, act = w3Act(), ro = locked() ? ' disabled' : '';
+var path = w3PathOf(), ch = W3_CHARS[st.char] ? st.char : null;
+$('w3Sub').textContent = 'Акт ' + act + ' · ' + W3_ACTS[act];
+/* верх: характер, путь, лимит */
+var charHTML = VIEWER ? (ch ? '<span class="pill coop">' + esc(W3_CHARS[ch].n) + '</span><span class="small muted">' + esc(W3_CHARS[ch].d) + '</span>' : '<span class="small muted">Характер ещё не выбран</span>') :
+Object.keys(W3_CHARS).map(function(k){ return '<button class="seg' + (ch === k ? ' on' : '') + '" type="button" data-act="w3-char" data-id="' + k + '" aria-pressed="' + (ch === k) + '" title="' + esc(W3_CHARS[k].d) + '"' + ro + '>' + esc(W3_CHARS[k].n) + '</button>'; }).join('');
+var pathHTML = VIEWER ? (path ? '<span class="pill play">' + esc(W3_PATHS[path].n) + '</span><span class="small muted">' + esc(W3_PATHS[path].d) + '</span>' : '<span class="small muted">Путь акта не выбран</span>') :
+Object.keys(W3_PATHS).map(function(k){ return '<button class="seg' + (path === k ? ' on' : '') + '" type="button" data-act="w3-path" data-id="' + k + '" aria-pressed="' + (path === k) + '" title="' + esc(W3_PATHS[k].d) + '"' + ro + '>' + esc(W3_PATHS[k].n) + '</button>'; }).join('');
+var wk = Math.min(W3_CAP, w.week), wpct = Math.round(wk / W3_CAP * 100);
+var top = '<div class="w3-top card">' +
+'<div class="w3-kv"><span class="items-label">Характер</span><div class="segs">' + charHTML + '</div></div>' +
+'<div class="w3-kv"><span class="items-label">Путь акта</span><div class="segs">' + pathHTML + '</div></div>' +
+'<div class="w3-nums">' +
+'<div><div class="v mono">' + num(w.pts) + '</div><div class="l">очков из журнала</div></div>' +
+'<div class="w3-week"><div class="l">Эта неделя: <span class="mono">' + wk + '/' + W3_CAP + '</span></div><div class="bar thin"><span style="width:' + wpct + '%"></span></div></div>' +
+'<div><div class="v mono">' + num(w.glory) + '</div><div class="l">слава сверх лимита</div></div>' +
+'</div></div>';
+/* доска */
+var cards = (st.board && Array.isArray(st.board.cards) ? st.board.cards : []).filter(w3CardOk);
+var rrUsed = st.board && st.board.rr === dayKey();
+var board = cards.map(function(c){
+var t = w3Task(c.id), r = w3Rarity(t), mult = t.c === 'legend' ? 1 : w3Mult(t);
+return '<article class="w3-card r-' + r + '"><div class="w3-card-top"><span class="w3-rar">' + W3_RAR[r] + '</span><span class="small muted">' + esc(w3ColName(t.c)) + '</span></div>' +
+'<p class="w3-card-t">' + esc(t.t) + '</p>' +
+'<div class="w3-card-foot"><span class="mono plus">+' + Math.round(t.p * mult) + (VIEWER ? '' : ' +' + W3_BOARD_BONUS) + '</span>' +
+(VIEWER ? '' : '<span class="acts"><button class="btn btn-small btn-ghost" type="button" data-act="w3-reroll" data-id="' + t.id + '"' + (ro || (rrUsed ? ' disabled' : '')) + ' title="' + (rrUsed ? 'Сегодня уже срывал' : 'Сорвать без выполнения — раз в день') + '">↻</button><button class="btn btn-small btn-primary" type="button" data-act="w3-board" data-id="' + t.id + '"' + ro + '>Выполнил</button></span>') +
+'</div></article>';
+}).join('');
+if (cards.length < 3 && !VIEWER) board += '<div class="w3-card empty"><p class="small muted">' + (cards.length ? 'Место на доске свободно.' : 'Доска пустая. Повесь объявления — появятся 3 задания на вечер.') + '</p><button class="btn btn-small btn-primary" type="button" data-act="w3-fill"' + ro + '>Повесить объявления</button></div>';
+if (!cards.length && VIEWER) board = '<p class="small muted">Доска пока пустая.</p>';
+/* коллекции */
+var sel = S.w3col || 'hunt';
+var colBtns = w.cols.filter(function(c){ return c.c.id !== 'char' || ch; }).map(function(c){
+var pct = Math.round(c.pct * 100), isSecret = c.c.id === 'secret';
+var sub = isSecret ? c.done + ' из ' + c.list.length + ' найдено' : (c.chestOk ? 'Сундук получен' : c.c.chest ? 'сундук на 75%' : pct + '%');
+return '<button class="w3-col' + (sel === c.c.id ? ' on' : '') + (c.chestOk ? ' ok' : '') + '" type="button" data-act="wcol" data-id="' + c.c.id + '" aria-pressed="' + (sel === c.c.id) + '">' +
+'<span class="w3-col-n">' + esc(c.c.id === 'char' && ch ? W3_CHARS[ch].n : c.c.n) + '</span>' +
+(isSecret ? '' : '<span class="bar thin"><span style="width:' + pct + '%"></span></span>') +
+'<span class="small muted">' + esc(sub) + (c.c.chest && !c.chestOk ? ' · ' + pct + '%' : '') + '</span></button>';
+}).join('');
+var selCol = w.cols.filter(function(c){ return c.c.id === sel; })[0] || w.cols[0];
+var list = selCol.list.slice().sort(function(a, b){ return (w3Unlocked(b) - w3Unlocked(a)) || ((a.a || 1) - (b.a || 1)); });
+var colHead = selCol.c.chest ? '<p class="small muted">Сундук коллекции на 75%: ' + chestPlain(selCol.c.chest) + '.' + (path && W3_PATHS[path].cols.indexOf(selCol.c.id) > -1 ? ' Путь «' + W3_PATHS[path].n + '»: очки ×1,5.' : '') + '</p>' :
+selCol.c.id === 'secret' ? '<p class="small muted">Видна только подсказка. Выполнил — отметь, и секрет откроется.</p>' : '<p class="small muted">Задания выбранного характера.</p>';
+if (selCol.c.id === 'char' && !ch) colHead = '<p class="small muted">Сначала выбери характер Геральта.</p>';
+var tasksHTML = '<ul class="w3-tasks">' + list.map(function(t){ return w3TaskRow(t, w); }).join('') + '</ul>';
+/* акт */
+var actBox = '';
+if (!VIEWER && act < 5) {
+actBox = S.w3confirm ?
+'<div class="confirm"><p><strong>Акт ' + act + ' «' + esc(W3_ACTS[act]) + '» пройден?</strong> Откроются задания следующего акта, итоги попадут на витрину.</p><div class="acts"><button class="btn btn-primary btn-small" type="button" data-act="w3-act-ok"' + ro + '>Да, дальше</button><button class="btn btn-ghost btn-small" type="button" data-act="w3-act-no">Отмена</button></div></div>' :
+'<div class="acts"><button class="btn btn-small" type="button" data-act="w3-act"' + ro + '>Акт ' + act + ' пройден</button><span class="small muted">Дальше: ' + esc(W3_ACTS[act + 1]) + '</span></div>';
+}
+var sums = w3ActSummaries();
+var sumHTML = sums.length ? '<div class="w3-acts">' + sums.map(function(s){
+return '<article class="w3-actcard"><span class="eyebrow">Акт ' + s.act + ' завершён · ' + fmtDate(s.end) + '</span><div class="w3-act-n">' + esc(W3_ACTS[s.act]) + '</div>' +
+'<div class="small">' + s.tasks + ' ' + plural(s.tasks, 'задание', 'задания', 'заданий') + ' · +' + num(s.pts) + ' очк.' + (s.path ? ' · путь: ' + esc(W3_PATHS[s.path].n) : '') + '</div>' +
+(s.quote ? '<div class="small muted">«' + esc(s.quote) + '»</div>' : '') + '</article>';
+}).join('') + '</div>' : '';
+/* дневник */
+var diary = Array.isArray(st.diary) ? st.diary : [];
+var form = VIEWER ? '' : '<form class="w3-diary-form" id="w3DiaryForm"><label class="sr" for="w3DiaryIn">Запись в дневник</label><input id="w3DiaryIn" maxlength="240" autocomplete="off" placeholder="Цитата вечера, догадка, что запомнилось…"' + ro + '><button class="btn btn-small btn-primary" type="submit"' + ro + '>Записать</button></form>';
+var dList = diary.length ? '<ol class="w3-diary">' + diary.slice(0, VIEWER ? 8 : 6).map(function(e){
+return '<li><span class="lt mono">' + fmtDate(e.t) + ' · акт ' + (e.a || 1) + '</span><span>' + esc(e.x) + '</span>' + (VIEWER ? '' : '<button class="btn btn-small btn-ghost" type="button" data-act="w3-del" data-id="' + esc(e.t) + '" aria-label="Удалить запись"' + ro + '>✕</button>') + '</li>';
+}).join('') + '</ol>' : '<p class="small muted">' + (VIEWER ? 'Записей пока нет.' : 'Пиши одну строку после сессии: реплику вечера, догадку перед квестом, что запомнилось. Это увидят друзья на витрине.') + '</p>';
+$('w3Body').innerHTML = top +
+'<div class="w3-block"><div class="sec-head"><h3 class="w3-h">Доска объявлений</h3><span class="small muted">' + (VIEWER ? 'Задания на ближайшие вечера' : '3 задания на вечер · с доски +' + W3_BOARD_BONUS + ' · сорвать без выполнения — раз в день') + '</span></div><div class="w3-board">' + board + '</div></div>' +
+'<div class="w3-block"><div class="sec-head"><h3 class="w3-h">Коллекции</h3><span class="small muted">Задания открываются по актам</span></div><div class="w3-cols">' + colBtns + '</div>' +
+'<div class="w3-list card">' + colHead + tasksHTML + '</div></div>' +
+'<div class="w3-block"><div class="sec-head"><h3 class="w3-h">Дневник ведьмака</h3></div>' + form + dList + '</div>' +
+(actBox || sumHTML ? '<div class="w3-block">' + actBox + sumHTML + '</div>' : '');
+}
+function w3ActSummaries(){
+var st = w3(), done = st.actsDone || {}, out = [];
+var all = [];
+Object.keys(st.tasks || {}).forEach(function(id){ (st.tasks[id] || []).forEach(function(e){ all.push(e); }); });
+var diary = Array.isArray(st.diary) ? st.diary : [];
+for (var a = 1; a <= 5; a++) {
+if (!done[a]) continue;
+var es = all.filter(function(e){ return (e.a || 1) === a; });
+var q = diary.filter(function(e){ return (e.a || 1) === a; });
+out.push({act:a, end:done[a], tasks:es.length, pts:es.reduce(function(s, e){ return s + (Number(e.p) || 0); }, 0), path:W3_PATHS[(st.path || {})[a]] ? st.path[a] : null, quote:q.length ? q[0].x : ''});
+}
+return out.reverse();
+}
 /* ---------- рулетка ---------- */
 var spinTimer = null;
 function spin(){
@@ -662,6 +1062,18 @@ wrap.innerHTML = rewardRowHTML({id:newId('r'), pts:Math.max(100, Math.ceil((deri
 var row = wrap.firstChild; $('rewRows').appendChild(row); row.querySelector('.re-text').focus(); break;
 }
 case 'rew-del': { var r = b.closest('.re-row'); if (r) r.remove(); break; }
+case 'wcol': S.w3col = id; renderWitcher(derive()); break;
+case 'w3-done': w3Complete(id, false); break;
+case 'w3-board': w3Complete(id, true); break;
+case 'w3-undo': w3Undo(id); break;
+case 'w3-reroll': w3Reroll(id); break;
+case 'w3-fill': w3Refill(); break;
+case 'w3-char': w3SetChar(id); break;
+case 'w3-path': w3SetPath(id); break;
+case 'w3-act': S.w3confirm = true; renderWitcher(derive()); break;
+case 'w3-act-no': S.w3confirm = false; renderWitcher(derive()); break;
+case 'w3-act-ok': w3NextAct(); break;
+case 'w3-del': w3DelDiary(id); break;
 }
 });
 document.addEventListener('change', function(e){
@@ -681,6 +1093,11 @@ items.push(it);
 S.rewardEdit = false; $('rewEditBtn').hidden = false;
 setRewards(items); toast('Награды сохранены.');
 }
+if (e.target.id === 'w3DiaryForm') {
+e.preventDefault();
+var inp = $('w3DiaryIn'); w3AddDiary(inp.value); 
+return;
+}
 if (e.target.id === 'addForm') {
 e.preventDefault();
 if (locked()) return;
@@ -698,8 +1115,8 @@ $('q').addEventListener('input', function(e){ S.q = e.target.value; renderGames(
 /* ---------- запуск ---------- */
 renderAll();
 function subscribe(){
-var got = {progress:false, custom:false, dota:false, rewards:false, ranks:false};
-function ready(k){ got[k] = true; if (!S.loaded && got.progress && got.custom && got.dota && got.rewards && got.ranks) { S.loaded = true; S.mode = 'db'; } renderAll(); }
+var got = {progress:false, custom:false, dota:false, rewards:false, ranks:false, witcher:false};
+function ready(k){ got[k] = true; if (!S.loaded && got.progress && got.custom && got.dota && got.rewards && got.ranks && got.witcher) { S.loaded = true; S.mode = 'db'; } renderAll(); }
 function fail(e){ if (e && (e.code === 'revoked' || e.code === 'not_granted')) { S.readonly = true; } renderAll(); }
 db.collection('progress').onSnapshot(function(snap){
 var m = {}; snap.docs.forEach(function(doc){ if (doc.exists) m[doc.id] = clone(doc.data()); });
@@ -722,6 +1139,10 @@ db.doc('meta/ranks').onSnapshot(function(doc){
 var v = doc.exists ? clone(doc.data()) : null;
 S.ranks = {claimed:(v && v.claimed && typeof v.claimed === 'object') ? v.claimed : {}};
 ready('ranks');
+}, fail);
+db.doc('meta/witcher').onSnapshot(function(doc){
+S.w3 = doc.exists ? clone(doc.data()) : null;
+ready('witcher');
 }, fail);
 }
 (function boot(){
