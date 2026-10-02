@@ -210,7 +210,7 @@ function daysSince(iso){ return Math.max(0, Math.floor((Date.now() - new Date(is
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function hasDone(c, id){ return c.done.some(function(g){ return g.id === id; }); }
 function allGames(){
-var custom = Object.keys(S.custom).map(function(id){ var g = S.custom[id] || {}; return {id:id, n:g.name || 'Без названия', h:Math.max(1, Number(g.hours) || 1), c:[CATS[g.cat] ? g.cat : 'story'], coop:!!g.coop, custom:true}; });
+var custom = Object.keys(S.custom).map(function(id){ var g = S.custom[id] || {}; return {id:id, n:g.name || 'Без названия', h:Math.max(1, Number(g.hours) || 1), c:[CATS[g.cat] ? g.cat : 'story'], coop:!!g.coop, custom:true, note:typeof g.note === 'string' ? g.note.slice(0, 60) : '', ch:Array.isArray(g.ch) ? g.ch.filter(function(x){ return x && typeof x.id === 'string' && typeof x.t === 'string'; }).map(function(x){ return {id:x.id, t:String(x.t).slice(0, 160), p:Math.max(0, Math.min(100, Number(x.p) || 0)), auto:!!x.auto}; }) : undefined}; });
 return GAMES.concat(custom);
 }
 function gameById(id){ var l = allGames(); for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }
@@ -371,7 +371,7 @@ var est = bb + chPts + (sprintOk ? SPRINT_BONUS : 0);
 var own = (g.ch || []).map(chRow).join('');
 var uni = UNIVERSAL.map(chRow).join('');
 function chRow(x){
-return '<label class="ch"><input type="checkbox" id="ch-' + g.id + '-' + x.id + '" data-act="ch" data-id="' + g.id + '" data-ch="' + x.id + '"' + (ch[x.id] ? ' checked' : '') + ro + '><span>' + esc(x.t) + '</span><span class="mono plus">+' + x.p + '</span></label>';
+return '<label class="ch"><input type="checkbox" id="ch-' + g.id + '-' + x.id + '" data-act="ch" data-id="' + g.id + '" data-ch="' + x.id + '"' + (ch[x.id] ? ' checked' : '') + ro + '><span>' + esc(x.t) + (x.auto ? ' <span class="tag steam">из сейва</span>' : '') + '</span><span class="mono plus">+' + x.p + '</span></label>';
 }
 var sprintRow = '<div class="ch auto"><span class="auto-mark' + (sprintOk ? ' on' : '') + '" aria-hidden="true"></span><span>' + (sprintOk ? 'Спринт: финал до ' + fmtDate(deadline) + ' — осталось ' + left + ' ' + plural(left, 'день', 'дня', 'дней') : 'Спринт упущен. Очки за игру остаются') + '</span><span class="mono plus">' + (sprintOk ? '+' + SPRINT_BONUS : '0') + '</span></div>';
 var panel = '';
